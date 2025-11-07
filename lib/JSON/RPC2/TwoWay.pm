@@ -40,6 +40,7 @@ sub newconnection {
 		rpc => $self,
 		owner => $opt{owner},
 		write => $opt{write},
+		close => $opt{close},
 		debug => $self->{debug} ? $self->{log} : 0,
 		json => $self->{json},
 	);
@@ -175,6 +176,7 @@ JSON::RPC2::TwoWay - Transport-independent bidirectional JSON-RPC 2.0
   $con = $rpc->newconnection(
     owner => $owner, 
     write => sub { $stream->write(@_) }
+    close => sub { $stream->close }
   );
   @err = $con->handle($stream->read);
   die $err[-1] if @err;

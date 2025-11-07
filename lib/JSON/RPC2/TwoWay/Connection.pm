@@ -25,8 +25,8 @@ use constant ERR_REQ    => -32600;
 sub new {
 	my ($class, %opt) = @_;
 	croak 'no rpc?' unless $opt{rpc} and $opt{rpc}->isa('JSON::RPC2::TwoWay');
-	#croak 'no stream?' unless $opt->{stream} and $opt->{stream}->can('write');
 	croak 'no write?' unless $opt{write} and ref $opt{write} eq 'CODE';
+	croak 'no close?' if $opt{close} and ref $opt{close} ne 'CODE';
 	my $self = {
 		calls => {},
 		debug => $opt{debug} ? 1 : 0,
@@ -38,6 +38,7 @@ sub new {
 		json => $opt{rpc}->{json},
 		state => undef,
 		write => $opt{write},
+		close => $opt{close},
 	};
 	weaken $self->{owner};
 	return bless $self, $class;
@@ -172,6 +173,9 @@ sub state {
 
 sub close {
 	my $self = shift;
+	if (my $cb = $self->{close}) {
+		$cb->($self, @_);
+	}
 	%$self = (); # nuke'm all
 }
 
@@ -196,6 +200,7 @@ JSON::RPC2::TwoWay::Connection - Transport-independent bidirectional JSON-RPC 2.
   $con = $rpc->newconnection(
     owner => $owner, 
     write => sub { $stream->write(@_) }
+    close => sub { $stream->close }
   );
   @err = $con->handle($stream->read);
   die $err[-1] if @err;
@@ -236,6 +241,10 @@ Otherwise state will always be 0.
 
 This coderef will be called for all output: both requests and responses.
 (required)
+
+=item - close: a coderef called for closing
+
+This coderef will be called when the connection is closed.
 
 =back
 
