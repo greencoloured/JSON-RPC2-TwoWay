@@ -30,6 +30,7 @@ sub new {
 		log => ref $opt{debug} eq 'CODE' ? $opt{debug} : sub { say STDERR @_ },
 		json => $opt{json} // JSON::MaybeXS->new(utf8 => 1),
 		methods => {},
+		map { defined $opt{$_} ? ($_ => $opt{$_}) : () } qw(legacy_mode)
 	};
 	return bless $self, $class;
 }
@@ -43,6 +44,7 @@ sub newconnection {
 		close => $opt{close},
 		debug => $self->{debug} ? $self->{log} : 0,
 		json => $self->{json},
+		map { defined $self->{$_} ? ($_ => $self->{$_}) : () } qw(legacy_mode)
 	);
 	return $conn
 }

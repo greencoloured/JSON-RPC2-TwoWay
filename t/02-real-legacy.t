@@ -13,6 +13,6 @@ use lib (
 use Test::More tests => 44;
 use Tests;
 
-my $rpc = JSON::RPC2::TwoWay->new(legacy_mode => 0);
+my $rpc = JSON::RPC2::TwoWay->new(legacy_mode => 1);
 
 run($rpc);

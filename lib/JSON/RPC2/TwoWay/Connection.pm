@@ -39,6 +39,7 @@ sub new {
 		state => undef,
 		write => $opt{write},
 		close => $opt{close},
+		legacy_mode => $opt{legacy_mode} // 1,
 	};
 	weaken $self->{owner};
 	return bless $self, $class;
@@ -97,30 +98,42 @@ sub notify {
 	return;
 }
 
+# returns nothing on no error
+# returns error string on fatal error
+# returns 0 and error string on normal error
 sub handle {
 	my ($self, $json) = @_;
-	my @err = $self->_handle(\$json);
-	$self->{rpc}->_error($self, undef, ERR_REQ, 'Invalid Request: ' . $err[0]) if $err[0];
-        return @err;
-}
-
-sub _handle {
-	my ($self, $jsonr) = @_;
-	$self->{log}->('    handle: ' . $$jsonr) if $self->{debug};
+	$self->{log}->('    handle: ' . $json) if $self->{debug};
 	local $@;
-	my $r = eval { $self->{json}->decode($$jsonr) };
-	return "json decode failed: $@" if $@;
-	return 'not a json object' if ref $r ne 'HASH';
-	return 'expected jsonrpc version 2.0' unless defined $r->{jsonrpc} and $r->{jsonrpc} eq '2.0';
-	# id can be null in the error case
-	return 'id is not a string or number' if exists $r->{id} and ref $r->{id};
-	if (defined $r->{method}) {
-		return $self->{rpc}->_handle_request($self, $r);
+	my $r = eval { $self->{json}->decode($json) };
+	my $what = 'Request';
+	my @err;
+	if ($@) {
+		@err = "json decode failed: $@";
+	} elsif (ref $r ne 'HASH') {
+		@err = 'not a json object';
+	} elsif (not defined $r->{jsonrpc} or $r->{jsonrpc} ne '2.0') {
+		@err = 'expected jsonrpc version 2.0';
+	} elsif (exists $r->{id} and ref $r->{id}) {
+		# id can be null in the error case
+		@err = 'id is not a string or number';
+	} elsif (defined $r->{method}) {
+		@err = $self->{legacy_mode} 
+			? $self->{rpc}->_handle_request($self, $r)
+			: eval { $self->{rpc}->_handle_request($self, $r) };
+		@err = ($@) if $@;
 	} elsif (exists $r->{id} and (exists $r->{result} or defined $r->{error})) {
-		return $self->_handle_response($r);
+		@err = $self->{legacy_mode} 
+			? $self->_handle_response($r)
+			: eval { $self->_handle_response($r) };
+		@err = (0, $@) if $@;
+		# XXX mislabel so that error messages do not change in legacy_mode!
+		$what = 'Response' unless $self->{legacy_mode};
 	} else {
-		return 'invalid jsonnrpc object';
+		@err = 'invalid jsonnrpc object';
 	}
+	$self->{rpc}->_error($self, undef, ERR_REQ, "Invalid $what: $err[0]") if $err[0];
+	return @err;
 }
 
 sub _handle_response {
@@ -129,21 +142,25 @@ sub _handle_response {
 	my $id = $r->{id};
 	my ($cb, $raw);
 	$cb = delete $self->{calls}->{$id} if $id;
-	return unless $cb;
-	($cb, $raw) = @$cb;
+	return if $self->{legacy_mode} and not $cb;
+	($cb, $raw) = $cb ? @$cb : ();
 	if (defined $r->{error}) {
 		my $e = $r->{error};
 		return 'error is not an object' unless ref $e eq 'HASH';
 		return 'error code is not a integer' unless defined $e->{code} and $e->{code} =~ /^-?\d+$/;
 		return 'error message is not a string' if ref $e->{message};
 		return 'extra members in error object' if (keys %$e == 3 and !exists $e->{data}) or (keys %$e > 3);
-		if ($raw) {
+		if (not $cb) {
+			return JSON::RPC2::TwoWay::_format_error(@{$e}{qw(code message data)});
+		} elsif ($raw) {
 			$cb->($r);
 		} else {
 			$cb->($e);
 		}
 	} else {
-		if ($raw) {
+		if (not $cb) {
+			return;
+		} elsif ($raw) {
 			$cb->(0, $r);
 		} else {
 			$cb->(0, $r->{result});
