@@ -190,7 +190,7 @@ JSON::RPC2::TwoWay - Transport-independent bidirectional JSON-RPC 2.0
 
   $con = $rpc->newconnection(
     owner => $owner, 
-    write => sub { $stream->write(@_) }
+    write => sub { $stream->write(@_) },
     close => sub { $stream->close }
   );
   @err = $con->handle($stream->read);
@@ -219,6 +219,9 @@ Valid arguments are:
 the debugging line.
 
 =item - json: json encoder/decoder object to use. Defaults to JSON::MaybeXS->new().
+
+=item - legacy_mode: legacy support for how errors in request/result callbacks 
+are propogated out of L<JSON::RPC2::TwoWay/handle> method. Defaults to true.
 
 =back
 

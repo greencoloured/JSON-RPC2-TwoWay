@@ -333,12 +333,16 @@ appropriate error response to be sent to the other side. The application
 using the JSON::RPC2::TwoWay::Connection is advised to close the underlying
 connection in case of fatal errors.
 
+In C<legacy_mode> errors thrown by response handler callback will be raised 
+out of C<handle>. When C<legacy_mode> is disabled errors raised by response 
+handler will be transformed into C<normal> errors.
+
 =head2 close
 
 $con->close()
 
 Closes the connection. Recommended to be used to avoid memory leaks due to
-circular references.
+circular references. Will call C<close> callback if not already closed.
 
 =head2 owner
 
