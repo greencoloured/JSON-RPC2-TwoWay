@@ -135,8 +135,8 @@ sub _handle_response {
 		my $e = $r->{error};
 		return 'error is not an object' unless ref $e eq 'HASH';
 		return 'error code is not a integer' unless defined $e->{code} and $e->{code} =~ /^-?\d+$/;
-        	return 'error message is not a string' if ref $e->{message};
-        	return 'extra members in error object' if (keys %$e == 3 and !exists $e->{data}) or (keys %$e > 2);
+		return 'error message is not a string' if ref $e->{message};
+		return 'extra members in error object' if (keys %$e == 3 and !exists $e->{data}) or (keys %$e > 3);
 		if ($raw) {
 			$cb->($r);
 		} else {

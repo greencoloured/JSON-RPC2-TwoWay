@@ -127,16 +127,29 @@ sub _handle_request {
 	return;
 }
 
+sub _format_error {
+	my ($code, $message, $data) = @_;
+	chomp($message //= '');
+	my $err = "error: $code";
+	if ($message ne '') {
+		$err .= " $message";
+	}
+	if (defined $data) {
+		$err .= ', data: ' . Dumper($data);
+	}
+	return $err;
+}
+
 sub _error {
 	my ($self, $c, $id, $code, $message, $data) = @_;
-	my $err = "error: $code " . $message // '';
+	my $err = _format_error($code, $message, $data);
 	$self->{log}->($err) if $self->{debug};
 	$c->write($self->{json}->encode({
 		jsonrpc     => '2.0',
 		id          => $id,
 		error       => {
-			code        => $code,
-			message     => $message,
+			code    => $code, 
+			message => $message, 
 			(defined $data ? ( data => $data ) : ()),
 		},
 	}));
