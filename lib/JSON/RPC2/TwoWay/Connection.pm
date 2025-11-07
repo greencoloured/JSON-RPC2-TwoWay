@@ -121,12 +121,12 @@ sub handle {
 		@err = $self->{legacy_mode} 
 			? $self->{rpc}->_handle_request($self, $r)
 			: eval { $self->{rpc}->_handle_request($self, $r) };
-		@err = ($@) if $@;
+		@err = ($@) if $@; # fatal error
 	} elsif (exists $r->{id} and (exists $r->{result} or defined $r->{error})) {
 		@err = $self->{legacy_mode} 
 			? $self->_handle_response($r)
 			: eval { $self->_handle_response($r) };
-		@err = (0, $@) if $@;
+		@err = (0, $@) if $@; # normal error
 		# XXX mislabel so that error messages do not change in legacy_mode!
 		$what = 'Response' unless $self->{legacy_mode};
 	} else {
@@ -216,7 +216,7 @@ JSON::RPC2::TwoWay::Connection - Transport-independent bidirectional JSON-RPC 2.
 
   $con = $rpc->newconnection(
     owner => $owner, 
-    write => sub { $stream->write(@_) }
+    write => sub { $stream->write(@_) },
     close => sub { $stream->close }
   );
   @err = $con->handle($stream->read);
